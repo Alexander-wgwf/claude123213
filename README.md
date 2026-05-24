@@ -15,22 +15,54 @@ Inputs: `Geometry`, `Collection`, `Separate Children`, `Reset Children`,
 
 ## `surface_projector/` — Surface Projector Modifier
 
-Projects every point of the input geometry onto the surface of a target
-object, similar in spirit to the built-in *Shrinkwrap* / *Surface Deform*
-modifiers but as a Geometry Nodes asset that you can stack and re-order
-freely.
+Projects a whole object onto the surface of another while **keeping its
+original shape and volume** — inspired by the *Deform To Surface* /
+*Surface Deform* family of tools.
 
-Modes:
+For every vertex it raycasts a *single, shared projection axis* against
+the target. The vertex's offset along the axis is preserved, so the
+source rides along the target's surface contour rather than collapsing
+flat onto it.
 
-- **Closest Point** (default) — every input point snaps to the closest
-  point on the target surface.
-- **Raycast** — every input point is raycast along its own (optionally
-  inverted) normal; the surface hit becomes the new position. Points
-  whose ray misses the target stay where they were.
+### Projection modes
 
-Inputs: `Geometry`, `Target`, `Use Raycast`, `Invert Ray`, `Ray Length`,
-`Factor` (0 = keep original, 1 = fully project), `Offset` (signed
-distance along the surface normal), `Selection` (per-point mask).
+The `Wrap` slider (0..1) continuously blends between three behaviours:
+
+- **Project** (`Wrap = 0`) — every vertex is translated *parallel to the
+  axis*. The source keeps its silhouette; great for "drop" workflows.
+- **Target Normal** (`Wrap = 1`) — every vertex is lifted along the
+  *target's* surface normal at the hit point. The source wraps the
+  surface.
+- **Flow to Surface** (`0 < Wrap < 1`) — smooth blend of the two; the
+  object bends along the surface without fully aligning to it.
+
+`Preserve Shape = false` falls back to a flat "decal/squish" behaviour
+where every vertex is snapped directly onto the surface.
+
+### Automatic axis
+
+`Auto Axis = true` (default) computes the projection axis as the world
+axis pointing from the source bounding-box centre to the target
+bounding-box centre — so the projector works no matter where the source
+sits relative to the target. Disable it to use the explicit
+`Manual Axis` vector instead. `Invert Axis` flips whichever axis is
+active.
+
+### Inputs
+
+| Socket          | Default            | Description                                            |
+|-----------------|--------------------|--------------------------------------------------------|
+| `Geometry`      | —                  | Source geometry to project.                            |
+| `Target`        | —                  | Object whose surface is the target.                    |
+| `Preserve Shape`| ✅                 | Keep the source's volume (lift each vertex).           |
+| `Wrap`          | 0.0                | 0 = Project, 1 = Target Normal, in-between = Flow.     |
+| `Auto Axis`     | ✅                 | Detect projection axis from bbox positions.            |
+| `Manual Axis`   | `(0, 0, -1)`       | Used when Auto Axis is off.                            |
+| `Invert Axis`   | ❌                 | Flip the active axis.                                  |
+| `Factor`        | 1.0                | 0 = original position, 1 = fully projected.            |
+| `Offset`        | 0.0                | Signed distance above the surface (effective normal).  |
+| `Ray Length`    | 1000               | Maximum raycast distance.                              |
+| `Selection`     | ✅                 | Per-point selection mask.                              |
 
 ## Installation
 
