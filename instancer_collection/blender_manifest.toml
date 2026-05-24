@@ -1,0 +1,16 @@
+schema_version = "1.0.0"
+
+id = "instancer_collection"
+version = "1.0.0"
+name = "Instancer Collection Modifier"
+tagline = "Use a collection as instanced geometry inside the modifier stack"
+maintainer = "Tembo <noreply@tembo.example>"
+type = "add-on"
+
+blender_version_min = "5.0.0"
+
+tags = ["Modeling", "Geometry Nodes", "Object"]
+
+license = [
+  "SPDX:GPL-2.0-or-later",
+]
