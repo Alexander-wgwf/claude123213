@@ -1,0 +1,16 @@
+schema_version = "1.0.0"
+
+id = "deform_to_surface"
+version = "1.0.0"
+name = "Deform To Surface Modifier"
+tagline = "High-quality bind-based projection of a mesh onto a target surface"
+maintainer = "Tembo <noreply@tembo.example>"
+type = "add-on"
+
+blender_version_min = "5.0.0"
+
+tags = ["Modeling", "Geometry Nodes", "Mesh"]
+
+license = [
+  "SPDX:GPL-2.0-or-later",
+]
