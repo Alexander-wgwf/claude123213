@@ -1,0 +1,16 @@
+schema_version = "1.0.0"
+
+id = "surface_projector"
+version = "1.0.0"
+name = "Surface Projector Modifier"
+tagline = "Project an object's geometry onto the surface of another object"
+maintainer = "Tembo <noreply@tembo.example>"
+type = "add-on"
+
+blender_version_min = "5.0.0"
+
+tags = ["Modeling", "Geometry Nodes", "Mesh"]
+
+license = [
+  "SPDX:GPL-2.0-or-later",
+]
