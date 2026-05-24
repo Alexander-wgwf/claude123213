@@ -1,38 +1,56 @@
-# Instancer Collection Modifier
+# Blender Modifier Extensions
 
-A Blender 5.0+ extension that adds an **Instancer Collection** modifier to
-the modifier stack.
+This repo ships two small Blender 5.0+ extensions that add custom modifiers
+implemented as Geometry Nodes groups.
 
-The modifier turns a Blender [Collection](https://docs.blender.org/manual/en/latest/scene_layout/collections/introduction.html)
-into instanced geometry inside the modifier stack, so any modifiers placed
-after it (Array, Bevel, Subdivision Surface, Geometry Nodes, etc.) keep
-operating on the resulting geometry.
+## `instancer_collection/` — Instancer Collection Modifier
 
-Under the hood it is a small Geometry Nodes tree exposed as a modifier — the
-same mechanism Blender itself uses for built-in geometry-nodes-based
-modifiers since 4.x.
+Turns a Blender [Collection](https://docs.blender.org/manual/en/latest/scene_layout/collections/introduction.html)
+into instanced geometry inside the modifier stack so any following
+modifiers (Array, Bevel, Subdivision Surface, Geometry Nodes, …) keep
+operating on the result.
 
-## Inputs
+Inputs: `Geometry`, `Collection`, `Separate Children`, `Reset Children`,
+`Realize Instances`, `Replace Input`.
 
-| Socket             | Default | Description                                                                                              |
-|--------------------|---------|----------------------------------------------------------------------------------------------------------|
-| `Geometry`         | —       | The geometry coming from the previous modifier in the stack.                                              |
-| `Collection`       | —       | Collection of objects to instance.                                                                        |
-| `Separate Children`| ✅      | Instance each child of the collection separately (otherwise the collection becomes one merged instance). |
-| `Reset Children`   | ❌      | Reset the transforms of the children before instancing them.                                              |
-| `Realize Instances`| ✅      | Turn the instances into real geometry so subsequent modifiers can edit it. Turn off to keep instances.    |
-| `Replace Input`    | ❌      | Replace the input geometry with the collection (instead of joining the collection on top of it).         |
+## `surface_projector/` — Surface Projector Modifier
+
+Projects every point of the input geometry onto the surface of a target
+object, similar in spirit to the built-in *Shrinkwrap* / *Surface Deform*
+modifiers but as a Geometry Nodes asset that you can stack and re-order
+freely.
+
+Modes:
+
+- **Closest Point** (default) — every input point snaps to the closest
+  point on the target surface.
+- **Raycast** — every input point is raycast along its own (optionally
+  inverted) normal; the surface hit becomes the new position. Points
+  whose ray misses the target stay where they were.
+
+Inputs: `Geometry`, `Target`, `Use Raycast`, `Invert Ray`, `Ray Length`,
+`Factor` (0 = keep original, 1 = fully project), `Offset` (signed
+distance along the surface normal), `Selection` (per-point mask).
 
 ## Installation
 
-1. Zip the `instancer_collection/` folder.
-2. In Blender 5.0+ open **Edit → Preferences → Get Extensions → Install from Disk…** and select the zip.
+Each extension lives in its own folder. To install:
+
+1. Zip the extension's folder (e.g. `instancer_collection/` →
+   `instancer_collection.zip`).
+2. In Blender 5.0+ open **Edit → Preferences → Get Extensions → Install
+   from Disk…** and select the zip.
 3. Enable the extension.
 
 ## Usage
 
-1. Select a target object (mesh, curve, empty…).
-2. In the Properties editor open the **Modifier** tab and click
-   **Add Modifier → Generate → Instancer Collection**.
-3. Pick a collection in the modifier's *Collection* field.
-4. Add further modifiers below it as usual.
+In the Properties editor open the **Modifier** tab:
+
+- **Add Modifier → Generate → Instancer Collection** for the collection
+  instancer.
+- **Add Modifier → Deform → Surface Projector** for the surface
+  projector.
+
+Both extensions create their Geometry Nodes group lazily when the
+modifier is first added, so they leave a clean scene if you never use
+them.
