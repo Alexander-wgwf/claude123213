@@ -366,6 +366,55 @@ class VIEW3D_PT_deform_to_surface(Panel):
             except TypeError:
                 continue
 
+        # ── Diagnostics: explain when the modifier looks silent ────────
+        target = _get_modifier_input(mod, "Target")
+        diag = layout.box().column(align=True)
+        if target is None:
+            diag.alert = True
+            diag.label(text="No Target set", icon="ERROR")
+            diag.label(text="Pick a mesh in the Target field above.")
+        elif target.type != "MESH":
+            diag.alert = True
+            diag.label(
+                text=f"Target '{target.name}' is {target.type}, not MESH",
+                icon="ERROR",
+            )
+            diag.label(text="The modifier needs a mesh surface.")
+        elif target.hide_viewport:
+            # The monitor-icon hide removes the object from the
+            # dependency graph, so Sample Nearest Surface sees no
+            # geometry and the modifier becomes a no-op. Distinct from
+            # the eye-icon (view-layer) hide which is fine.
+            diag.alert = True
+            diag.label(
+                text=f"Target '{target.name}' is disabled in viewports",
+                icon="ERROR",
+            )
+            diag.label(text="Turn off the monitor icon on the target.")
+        else:
+            bound = bool(_get_modifier_input(mod, "Use Bind"))
+            if not bound:
+                diag.label(
+                    text="Not bound — relief will not be preserved",
+                    icon="INFO",
+                )
+                diag.label(text="Place the mesh near the surface,")
+                diag.label(text="then press Bind below.")
+            else:
+                rest = _get_modifier_input(mod, "Rest Target")
+                if rest is None:
+                    diag.alert = True
+                    diag.label(
+                        text="Use Bind is on but Rest Target is empty",
+                        icon="ERROR",
+                    )
+                    diag.label(text="Press Bind to snapshot the target.")
+                else:
+                    diag.label(
+                        text=f"Bound to rest: {rest.name}",
+                        icon="CHECKMARK",
+                    )
+
         bound = bool(_get_modifier_input(mod, "Use Bind"))
         row = layout.row(align=True)
         if bound:
@@ -378,10 +427,6 @@ class VIEW3D_PT_deform_to_surface(Panel):
                 OBJECT_OT_deform_to_surface_bind.bl_idname,
                 text="Bind", icon="LINKED",
             )
-
-        rest = _get_modifier_input(mod, "Rest Target")
-        if rest is not None:
-            layout.label(text=f"Rest: {rest.name}", icon="MESH_DATA")
 
 
 # ──────────────────────────────────────────────────────────────────────
