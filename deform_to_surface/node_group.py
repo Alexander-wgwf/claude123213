@@ -496,16 +496,38 @@ def ensure_node_group(force_rebuild: bool = False) -> bpy.types.NodeTree:
     links.new(tgt_pos, bound_pos.inputs[0])
     links.new(sum_all.outputs["Vector"], bound_pos.inputs[1])
 
-    # Non-bound (plain projection) position = S_T + offset * N_T.
-    nor_offset_vec = _vector_math(
-        nodes, "SCALE", (740, 280), scale=1.0
-    )
-    nor_offset_vec.label = "offset * N_T"
+    # Non-bound (plain projection) position. Naive closest-point
+    # snapping collapses the input mesh against the surface and loses
+    # all height: instead, project each input point onto the **line**
+    # through S_T along N_T, which preserves the signed perpendicular
+    # distance to the surface. Points above the surface stay above,
+    # points below stay below, and only the tangent (parallel to the
+    # surface) component is dropped:
+    #
+    #     d        = (P - S_T) · N_T
+    #     new_pos  = S_T + (d + Normal Offset) * N_T
+    plain_delta = _vector_math(nodes, "SUBTRACT", (200, 320))
+    plain_delta.label = "P - S_T"
+    links.new(n_position.outputs["Position"], plain_delta.inputs[0])
+    links.new(tgt_pos, plain_delta.inputs[1])
+
+    plain_d = _vector_math(nodes, "DOT_PRODUCT", (420, 320))
+    plain_d.label = "d = (P - S_T) . N_T"
+    links.new(plain_delta.outputs["Vector"], plain_d.inputs[0])
+    links.new(tgt_nor, plain_d.inputs[1])
+
+    plain_d_total = _math(nodes, "ADD", (620, 320))
+    plain_d_total.label = "d + Normal Offset"
+    links.new(plain_d.outputs["Value"], plain_d_total.inputs[0])
+    links.new(n_in.outputs["Normal Offset"], plain_d_total.inputs[1])
+
+    nor_offset_vec = _vector_math(nodes, "SCALE", (820, 280), scale=1.0)
+    nor_offset_vec.label = "(d + Offset) * N_T"
     links.new(tgt_nor, nor_offset_vec.inputs[0])
-    links.new(n_in.outputs["Normal Offset"], nor_offset_vec.inputs[3])
+    links.new(plain_d_total.outputs["Value"], nor_offset_vec.inputs[3])
 
     plain_pos = _vector_math(nodes, "ADD", (1140, 280))
-    plain_pos.label = "Plain projected"
+    plain_pos.label = "Plain projected (perpendicular)"
     links.new(tgt_pos, plain_pos.inputs[0])
     links.new(nor_offset_vec.outputs["Vector"], plain_pos.inputs[1])
 

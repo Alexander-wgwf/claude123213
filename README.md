@@ -55,9 +55,15 @@ Inputs: `Geometry`, `Target`, `Rest Target`, `Use Bind`, `Factor`,
 
 A sidebar panel (`3D View → Sidebar → Deform`) exposes **Bind** /
 **Unbind** buttons and the common modifier inputs without having to
-dig through the Properties editor. Bind creates a hidden snapshot
-of the evaluated target, sets it as `Rest Target`, and flips
-`Use Bind` on. Unbind removes the snapshot and clears the socket.
+dig through the Properties editor. Bind creates a snapshot of the
+evaluated target, sets it as `Rest Target`, and flips `Use Bind` on.
+Unbind removes the snapshot and clears the socket.
+
+Without binding, each point is offset along the surface normal by its
+signed perpendicular distance to the closest surface point, which
+preserves the input mesh's height/thickness above the target instead
+of flattening everything onto the surface — Bind is still required to
+preserve full tangent-direction relief.
 
 ## Installation
 
