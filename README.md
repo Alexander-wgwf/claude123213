@@ -1,6 +1,6 @@
 # Blender Modifier Extensions
 
-This repo ships two small Blender 5.0+ extensions that add custom modifiers
+This repo ships three small Blender 5.0+ extensions that add custom modifiers
 implemented as Geometry Nodes groups.
 
 ## `instancer_collection/` — Instancer Collection Modifier
@@ -32,6 +32,33 @@ Inputs: `Geometry`, `Target`, `Use Raycast`, `Invert Ray`, `Ray Length`,
 `Factor` (0 = keep original, 1 = fully project), `Offset` (signed
 distance along the surface normal), `Selection` (per-point mask).
 
+## `deform_to_surface/` — Deform To Surface Modifier
+
+High-quality projection of one mesh onto another, with optional
+**bind-pose** wrapping that mimics Blender's built-in *Surface Deform*:
+
+- Samples the target with `Sample Nearest Surface` so the projected
+  positions and normals are smoothly **interpolated across faces**
+  instead of snapping to triangle centres — no faceted artifacts.
+- Optional **Bind**: snapshots the live target, then for each input
+  vertex stores its offset to that rest surface in the rest surface's
+  **tangent frame** (signed normal distance + two tangent components).
+  When the live target deforms, the offsets are reconstructed in the
+  new tangent frames so the geometry wraps and follows the target
+  surface like cloth — preserving the relief of the original mesh.
+- Built-in **post-blur smoothing pass** (Blur Attribute) to clean up
+  high-frequency noise even on coarse targets.
+
+Inputs: `Geometry`, `Target`, `Rest Target`, `Use Bind`, `Factor`,
+`Normal Offset`, `Strength` (rest relief scale), `Smooth Iterations`,
+`Smooth Weight`, `Selection`.
+
+A sidebar panel (`3D View → Sidebar → Deform`) exposes **Bind** /
+**Unbind** buttons and the common modifier inputs without having to
+dig through the Properties editor. Bind creates a hidden snapshot
+of the evaluated target, sets it as `Rest Target`, and flips
+`Use Bind` on. Unbind removes the snapshot and clears the socket.
+
 ## Installation
 
 Each extension lives in its own folder. To install:
@@ -50,7 +77,9 @@ In the Properties editor open the **Modifier** tab:
   instancer.
 - **Add Modifier → Deform → Surface Projector** for the surface
   projector.
+- **Add Modifier → Deform → Deform To Surface** for the bind-based
+  surface deformer.
 
-Both extensions create their Geometry Nodes group lazily when the
+All three extensions create their Geometry Nodes group lazily when the
 modifier is first added, so they leave a clean scene if you never use
 them.
