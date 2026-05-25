@@ -110,9 +110,16 @@ def _snapshot_target(context, target: bpy.types.Object, owner_name: str) -> bpy.
     snap_name = f"{owner_name}_RestTarget"
     snap = bpy.data.objects.new(snap_name, mesh)
     snap.matrix_world = target.matrix_world.copy()
-    snap.hide_viewport = True
+    # NOTE: do NOT use ``snap.hide_viewport = True`` here — that's the
+    # *monitor* icon which removes the object from depsgraph evaluation,
+    # so ``Sample Nearest Surface`` on the rest target would return
+    # ``Is Valid = False`` and the bound branch would silently fall back
+    # to plain (flattening) projection. Hide via the view-layer eye icon
+    # and minimise the display instead, both of which keep the object
+    # fully evaluated.
     snap.hide_render = True
     snap.hide_select = True
+    snap.display_type = "WIRE"
     snap[SNAPSHOT_TAG] = True
 
     # Link into the same collection as the modifier owner, or fall back
@@ -124,6 +131,17 @@ def _snapshot_target(context, target: bpy.types.Object, owner_name: str) -> bpy.
     if coll is None:
         coll = context.scene.collection
     coll.objects.link(snap)
+
+    # View-layer hide (eye icon) — keeps depsgraph evaluation alive.
+    try:
+        snap.hide_set(True)
+    except (RuntimeError, AttributeError):
+        # ``hide_set`` may fail in odd contexts (e.g. when called from a
+        # script outside the active view layer). The snapshot will still
+        # work; it will just be visible. ``display_type='WIRE'`` keeps
+        # the visual noise minimal.
+        pass
+
     return snap
 
 
@@ -135,6 +153,33 @@ def _remove_snapshot(snap: bpy.types.Object) -> None:
     bpy.data.objects.remove(snap, do_unlink=True)
     if isinstance(mesh, bpy.types.Mesh) and mesh.users == 0:
         bpy.data.meshes.remove(mesh)
+
+
+def _bind_modifier(context, obj, mod):
+    """Snapshot the current Target into a Rest Target on ``mod``.
+
+    Returns ``(ok, message)`` so callers can surface errors via ``report``.
+    Removes any existing snapshot owned by us so re-binding is safe.
+    """
+    if not _is_our_modifier(mod):
+        return False, "Not a Deform To Surface modifier"
+
+    target = _get_modifier_input(mod, "Target")
+    if target is None:
+        return False, "Set a Target object before binding"
+    if target is obj:
+        return False, "Target cannot be the deformed object itself"
+    if target.type != "MESH":
+        return False, "Target must be a mesh object"
+
+    old_rest = _get_modifier_input(mod, "Rest Target")
+    if old_rest is not None and old_rest.get(SNAPSHOT_TAG):
+        _remove_snapshot(old_rest)
+
+    snap = _snapshot_target(context, target, obj.name)
+    _set_modifier_input(mod, "Rest Target", snap)
+    _set_modifier_input(mod, "Use Bind", True)
+    return True, f"Bound to '{target.name}' (rest: '{snap.name}')"
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -179,10 +224,20 @@ class OBJECT_OT_add_deform_to_surface_modifier(Operator):
         mod = obj.modifiers.new(name=name, type="NODES")
         mod.node_group = ng
 
+        bound_msg = None
         if self.target:
             target = bpy.data.objects.get(self.target)
             if target is not None and target is not obj:
                 _set_modifier_input(mod, "Target", target)
+                # Auto-bind: without binding the modifier projects every
+                # point onto the closest surface point, which flattens
+                # the input mesh against the target. With a snapshot of
+                # the target as the rest pose, the modifier behaves
+                # like Surface Deform and preserves the input's relief.
+                if target.type == "MESH":
+                    ok, bound_msg = _bind_modifier(context, obj, mod)
+                    if not ok:
+                        self.report({"WARNING"}, bound_msg)
 
         # Make the new modifier active so the sidebar panel picks it up.
         try:
@@ -190,7 +245,10 @@ class OBJECT_OT_add_deform_to_surface_modifier(Operator):
         except AttributeError:
             pass
 
-        self.report({"INFO"}, f"Added '{name}' modifier on {obj.name}")
+        if bound_msg and "Bound" in bound_msg:
+            self.report({"INFO"}, f"Added '{name}' on {obj.name} — {bound_msg}")
+        else:
+            self.report({"INFO"}, f"Added '{name}' modifier on {obj.name}")
         return {"FINISHED"}
 
 
@@ -222,28 +280,9 @@ class OBJECT_OT_deform_to_surface_bind(Operator):
             self.report({"ERROR"}, "No Deform To Surface modifier on active object")
             return {"CANCELLED"}
 
-        target = _get_modifier_input(mod, "Target")
-        if target is None:
-            self.report({"ERROR"}, "Set a Target object before binding")
-            return {"CANCELLED"}
-        if target is obj:
-            self.report({"ERROR"}, "Target cannot be the deformed object itself")
-            return {"CANCELLED"}
-        if target.type != "MESH":
-            self.report({"ERROR"}, "Target must be a mesh object")
-            return {"CANCELLED"}
-
-        # Drop a previous snapshot if Bind is invoked again.
-        old_rest = _get_modifier_input(mod, "Rest Target")
-        if old_rest is not None and old_rest.get(SNAPSHOT_TAG):
-            _remove_snapshot(old_rest)
-
-        snap = _snapshot_target(context, target, obj.name)
-        _set_modifier_input(mod, "Rest Target", snap)
-        _set_modifier_input(mod, "Use Bind", True)
-
-        self.report({"INFO"}, f"Bound to '{target.name}' (rest: '{snap.name}')")
-        return {"FINISHED"}
+        ok, msg = _bind_modifier(context, obj, mod)
+        self.report({"INFO" if ok else "ERROR"}, msg)
+        return {"FINISHED" if ok else "CANCELLED"}
 
 
 class OBJECT_OT_deform_to_surface_unbind(Operator):
